@@ -4,7 +4,7 @@ import ECGChart from './ecgedit.js';
 function App() {
   return (
     <div className="App">
-      <ECGChart />
+      <ECGChart/>
     </div>
   );
 }

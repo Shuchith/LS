@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS } from 'chart.js';
+
+// Register chart.js components
 import {
   CategoryScale,
   LinearScale,
@@ -15,83 +17,51 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const ECGChart = () => {
   const [ecgData, setEcgData] = useState([]);
-  const [annotationsData, setAnnotationsData] = useState([]);
+  const [annotationsData, setAnnotationsData] = useState({ sample: [], symbol: [] });
   const [uniqueSymbols, setUniqueSymbols] = useState([]);
   const [selectedSymbols, setSelectedSymbols] = useState(new Set());
-  const [startIdx, setStartIdx] = useState(0);
-  const [endIdx, setEndIdx] = useState(100);
-  const [editOriginalSymbol, setEditOriginalSymbol] = useState(''); 
-  const [editNewSymbol, setEditNewSymbol] = useState('');  
-  const [editIndex, setEditIndex] = useState(null);  
-
+  const [customRange, setCustomRange] = useState({ start: 0, end: 500 });
+  const [sampleInput, setSampleInput] = useState('');
+  const [editSymbol, setEditSymbol] = useState('');
+  const [originalSymbol, setOriginalSymbol] = useState('');
+  
   useEffect(() => {
     // Fetch JSON data containing ECG data and annotations
     fetch('/102_data.json')  
       .then(response => response.json())
       .then(data => {
-        setEcgData(data.ecg_data.flat());  
+        setEcgData(data.ecg_data.flat());
         setAnnotationsData(data.annotations);
         setUniqueSymbols(data.unique_symbols);
-        setSelectedSymbols(new Set(data.unique_symbols));  
+        setSelectedSymbols(new Set(data.unique_symbols)); 
       });
   }, []);
 
-  
-  const filteredEcgData = ecgData.slice(startIdx, endIdx);
+  const updateCustomRange = (e) => {
+    const { name, value } = e.target;
+    setCustomRange(prev => ({ ...prev, [name]: parseInt(value) }));
+  };
 
-  const handleSymbolToggle = (symbol) => {
-    const newSelection = new Set(selectedSymbols);
-    if (newSelection.has(symbol)) {
-      newSelection.delete(symbol);
+  const handleSampleInput = () => {
+    const sampleNumber = parseInt(sampleInput);
+    const index = annotationsData.sample.indexOf(sampleNumber);
+    if (index !== -1) {
+      setOriginalSymbol(annotationsData.symbol[index]);
+      setEditSymbol(annotationsData.symbol[index]);
     } else {
-      newSelection.add(symbol);
+      setOriginalSymbol('');
+      setEditSymbol('');
     }
-    setSelectedSymbols(newSelection);
   };
 
-  const filteredAnnotations = annotationsData.sample
-    .map((sample, index) => ({
-      x: sample,
-      y: ecgData[sample],
-      symbol: annotationsData.symbol[index],
-    }))
-    .filter(item => selectedSymbols.has(item.symbol) && item.x >= startIdx && item.x <= endIdx);
-
-  const chartData = {
-    labels: Array.from({ length: filteredEcgData.length }, (_, i) => i + startIdx),
-    datasets: [
-      {
-        label: 'ECG Waveform',
-        data: filteredEcgData,
-        borderColor: 'blue',
-        borderWidth: 1,
-        pointRadius: 0,
-      },
-      {
-        label: 'Annotations',
-        data: filteredAnnotations,
-        pointBackgroundColor: 'red',
-        pointRadius: 3,
-        type: 'scatter',
-      }
-    ],
-  };
-
-  const updateAnnotationSymbol = (index, originalSymbol, newSymbol) => {
-    if (annotationsData.symbol[index] === originalSymbol) {
+  const updateAnnotationSymbol = () => {
+    const sampleNumber = parseInt(sampleInput);
+    const index = annotationsData.sample.indexOf(sampleNumber);
+    if (index !== -1) {
       const updatedAnnotations = { ...annotationsData };
-      updatedAnnotations.symbol[index] = newSymbol;
+      updatedAnnotations.symbol[index] = editSymbol;
       setAnnotationsData(updatedAnnotations);
-    } else {
-      alert('Original symbol does not match the current label!');
     }
-  };
-
-  const handleEditSubmit = (index) => {
-    updateAnnotationSymbol(index, editOriginalSymbol, editNewSymbol);
-    setEditIndex(null);
-    setEditOriginalSymbol('');
-    setEditNewSymbol('');
   };
 
   const saveAnnotationsToFile = () => {
@@ -110,34 +80,52 @@ const ECGChart = () => {
     document.body.removeChild(link);
   };
 
+  if (!ecgData.length || !annotationsData.sample.length) {
+    return <div>Loading...</div>;
+  }
+
+  const handleSymbolToggle = (symbol) => {
+    const newSelection = new Set(selectedSymbols);
+    if (newSelection.has(symbol)) {
+      newSelection.delete(symbol);
+    } else {
+      newSelection.add(symbol);
+    }
+    setSelectedSymbols(newSelection);
+  };
+
+  const filteredAnnotations = annotationsData.sample
+    .map((sample, index) => ({
+      x: sample,
+      y: ecgData[sample],
+      symbol: annotationsData.symbol[index],
+    }))
+    .filter(item => selectedSymbols.has(item.symbol));
+
+  const chartData = {
+    labels: Array.from({ length: customRange.end - customRange.start }, (_, i) => i + customRange.start),
+    datasets: [
+      {
+        label: 'ECG Waveform',
+        data: ecgData.slice(customRange.start, customRange.end),
+        borderColor: 'blue',
+        borderWidth: 1,
+        pointRadius: 0,
+      },
+      {
+        label: 'Annotations',
+        data: filteredAnnotations.filter(item => item.x >= customRange.start && item.x < customRange.end),
+        pointBackgroundColor: 'red',
+        pointRadius: 3,
+        type: 'scatter',
+      }
+    ],
+  };
+
   return (
     <div>
       <h2>ECG Waveform Visualization</h2>
       
-      {/* Range Input for Displaying Data */}
-      <div>
-        <label>
-          Start Index: 
-          <input
-            type="number"
-            value={startIdx}
-            onChange={(e) => setStartIdx(parseInt(e.target.value, 10))}
-            min={0}
-            max={ecgData.length - 1}
-          />
-        </label>
-        <label>
-          End Index: 
-          <input
-            type="number"
-            value={endIdx}
-            onChange={(e) => setEndIdx(parseInt(e.target.value, 10))}
-            min={startIdx + 1}
-            max={ecgData.length}
-          />
-        </label>
-      </div>
-
       {/* Symbol Filter */}
       <div>
         {uniqueSymbols.map(symbol => (
@@ -152,56 +140,30 @@ const ECGChart = () => {
         ))}
       </div>
 
-      {/* ECG Chart */}
+      {/* Custom Range Input */}
+      <div>
+        <label>Start: <input type="number" name="start" value={customRange.start} onChange={updateCustomRange} /></label>
+        <label>End: <input type="number" name="end" value={customRange.end} onChange={updateCustomRange} /></label>
+      </div>
+
       <Line data={chartData} options={{ responsive: true }} />
 
-      {/* Edit Annotations */}
+      {/* Edit Annotations by Sample Number */}
       <div>
-        <h3>Edit Annotations</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Sample</th>
-              <th>Current Symbol</th>
-              <th>Original Symbol</th>
-              <th>New Symbol</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {annotationsData.sample.slice(startIdx, endIdx).map((sample, index) => (
-              <tr key={index}>
-                <td>{sample}</td>
-                <td>{annotationsData.symbol[index]}</td>
-                <td>
-                  <input
-                    type="text"
-                    value={editIndex === index ? editOriginalSymbol : annotationsData.symbol[index]}
-                    onChange={(e) => setEditOriginalSymbol(e.target.value)}
-                    disabled={editIndex !== index}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={editIndex === index ? editNewSymbol : annotationsData.symbol[index]}
-                    onChange={(e) => setEditNewSymbol(e.target.value)}
-                    disabled={editIndex !== index}
-                  />
-                </td>
-                <td>
-                  {editIndex === index ? (
-                    <button onClick={() => handleEditSubmit(index)}>Save</button>
-                  ) : (
-                    <button onClick={() => { setEditIndex(index); setEditOriginalSymbol(annotationsData.symbol[index]); setEditNewSymbol(annotationsData.symbol[index]); }}>
-                      Edit
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <h3>Edit Annotations by Sample Number</h3>
+        <label>
+          Sample Number: <input type="number" value={sampleInput} onChange={(e) => setSampleInput(e.target.value)} />
+          <button onClick={handleSampleInput}>Load Symbol</button>
+        </label>
+        {originalSymbol && (
+          <div>
+            <p>Original Symbol: {originalSymbol}</p>
+            <label>
+              Edit Symbol: <input type="text" value={editSymbol} onChange={(e) => setEditSymbol(e.target.value)} />
+              <button onClick={updateAnnotationSymbol}>Update Symbol</button>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Save Button */}
