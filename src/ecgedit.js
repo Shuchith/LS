@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS } from 'chart.js';
-
-// Register chart.js components
 import {
   CategoryScale,
   LinearScale,
@@ -24,18 +22,21 @@ const ECGChart = () => {
   const [sampleInput, setSampleInput] = useState('');
   const [editSymbol, setEditSymbol] = useState('');
   const [originalSymbol, setOriginalSymbol] = useState('');
-  
-  useEffect(() => {
-    // Fetch JSON data containing ECG data and annotations
-    fetch('/102_data.json')  
-      .then(response => response.json())
-      .then(data => {
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = JSON.parse(e.target.result);
         setEcgData(data.ecg_data.flat());
         setAnnotationsData(data.annotations);
         setUniqueSymbols(data.unique_symbols);
-        setSelectedSymbols(new Set(data.unique_symbols)); 
-      });
-  }, []);
+        setSelectedSymbols(new Set(data.unique_symbols));
+      };
+      reader.readAsText(file);
+    }
+  };
 
   const updateCustomRange = (e) => {
     const { name, value } = e.target;
@@ -81,7 +82,13 @@ const ECGChart = () => {
   };
 
   if (!ecgData.length || !annotationsData.sample.length) {
-    return <div>Loading...</div>;
+    return (
+      <div>
+        <h2>ECG Waveform Visualization</h2>
+        <input type="file" accept="application/json" onChange={handleFileUpload} />
+        <p>Please upload a .json file to view the data.</p>
+      </div>
+    );
   }
 
   const handleSymbolToggle = (symbol) => {
@@ -125,7 +132,10 @@ const ECGChart = () => {
   return (
     <div>
       <h2>ECG Waveform Visualization</h2>
-      
+
+      {/* File Upload */}
+      <input type="file" accept="application/json" onChange={handleFileUpload} />
+
       {/* Symbol Filter */}
       <div>
         {uniqueSymbols.map(symbol => (
