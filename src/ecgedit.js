@@ -14,7 +14,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 const ECGChart = () => {
-  const [ecgData, setEcgData] = useState([]);
+  const [ecgDataChannels, setEcgDataChannels] = useState({});
   const [annotationsData, setAnnotationsData] = useState({ sample: [], symbol: [] });
   const [uniqueSymbols, setUniqueSymbols] = useState([]);
   const [selectedSymbols, setSelectedSymbols] = useState(new Set());
@@ -22,6 +22,7 @@ const ECGChart = () => {
   const [sampleInput, setSampleInput] = useState('');
   const [editSymbol, setEditSymbol] = useState('');
   const [originalSymbol, setOriginalSymbol] = useState('');
+  const [selectedChannel, setSelectedChannel] = useState('channel_1'); // Default to channel_1
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -29,7 +30,7 @@ const ECGChart = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const data = JSON.parse(e.target.result);
-        setEcgData(data.ecg_data.flat());
+        setEcgDataChannels(data.ecg_data_channels);
         setAnnotationsData(data.annotations);
         setUniqueSymbols(data.unique_symbols);
         setSelectedSymbols(new Set(data.unique_symbols));
@@ -67,7 +68,7 @@ const ECGChart = () => {
 
   const saveAnnotationsToFile = () => {
     const updatedData = {
-      ecg_data: ecgData,
+      ecg_data_channels: ecgDataChannels,
       annotations: annotationsData,
       unique_symbols: uniqueSymbols,
     };
@@ -81,7 +82,7 @@ const ECGChart = () => {
     document.body.removeChild(link);
   };
 
-  if (!ecgData.length || !annotationsData.sample.length) {
+  if (!Object.keys(ecgDataChannels).length || !annotationsData.sample.length) {
     return (
       <div>
         <h2>ECG Waveform Visualization</h2>
@@ -104,7 +105,7 @@ const ECGChart = () => {
   const filteredAnnotations = annotationsData.sample
     .map((sample, index) => ({
       x: sample,
-      y: ecgData[sample],
+      y: ecgDataChannels[selectedChannel][sample],
       symbol: annotationsData.symbol[index],
     }))
     .filter(item => selectedSymbols.has(item.symbol));
@@ -113,8 +114,8 @@ const ECGChart = () => {
     labels: Array.from({ length: customRange.end - customRange.start }, (_, i) => i + customRange.start),
     datasets: [
       {
-        label: 'ECG Waveform',
-        data: ecgData.slice(customRange.start, customRange.end),
+        label: `ECG Waveform (${selectedChannel})`,
+        data: ecgDataChannels[selectedChannel].slice(customRange.start, customRange.end),
         borderColor: 'blue',
         borderWidth: 1,
         pointRadius: 0,
@@ -135,6 +136,16 @@ const ECGChart = () => {
 
       {/* File Upload */}
       <input type="file" accept="application/json" onChange={handleFileUpload} />
+
+      {/* Channel Selection */}
+      <div>
+        <label>Select Channel:</label>
+        <select onChange={(e) => setSelectedChannel(e.target.value)} value={selectedChannel}>
+          {Object.keys(ecgDataChannels).map(channel => (
+            <option key={channel} value={channel}>{channel}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Symbol Filter */}
       <div>
