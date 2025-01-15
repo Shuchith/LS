@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS } from 'chart.js';
 import {
@@ -22,7 +22,7 @@ const ECGChart = () => {
   const [sampleInput, setSampleInput] = useState('');
   const [editSymbol, setEditSymbol] = useState('');
   const [originalSymbol, setOriginalSymbol] = useState('');
-  const [selectedChannel, setSelectedChannel] = useState('channel_1'); // Default to channel_1
+  const [selectedChannel, setSelectedChannel] = useState('channel_1'); 
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
